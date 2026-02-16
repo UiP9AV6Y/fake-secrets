@@ -1,0 +1,14 @@
+*.dll
+*.dylib
+*.env
+*.exe
+*.exe~
+*.html
+*.out
+*.so
+*.test
+*.work
+*.work.sum
+.env
+
+vendor/

@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  custom_variables:
+    runs-on: ubuntu-24.04
+    outputs:
+      registry_repository: ${{ steps.set.outputs.registry_repository }}
+    steps:
+      - id: set
+        name: Set outputs
+        run: |
+          REGISTRY_REPOSITORY="${{ github.repository }}"
+          echo "registry_repository=${REGISTRY_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+  container-image:
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    needs:
+      - custom_variables
+    permissions:
+      contents: read # to fetch the repository content
+      packages: write # required to push to GHCR
+    with:
+      platforms: linux/amd64,linux/arm64,linux/arm/v7
+      output: image
+      push: true
+      set-meta-annotations: true
+      set-meta-labels: true
+      meta-images: ghcr.io/${{ needs.custom_variables.outputs.registry_repository }}
+      meta-tags: |
+        type=semver,pattern={{version}}
+        type=semver,pattern={{major}}.{{minor}}
+        type=semver,pattern={{major}}
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

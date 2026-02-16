@@ -1,0 +1,83 @@
+name: Tests
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    tags-ignore:
+      - "*"
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  codespell:
+    name: Check for spelling errors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: codespell-project/actions-codespell@v2
+        with:
+          check_filenames: true
+          skip: ./.git,go.mod,go.sum
+          ignore_words_list: AtLeast,AtMost
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - run: go mod download
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: .tool-versions
+          args: --timeout=5m
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - run: go mod download -x
+      - run: go test -v -race -coverprofile=coverage.out -covermode=atomic -timeout 20m ./...
+        timeout-minutes: 20
+
+  container-image:
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    permissions:
+      contents: read
+    with:
+      platforms: linux/amd64,linux/arm64,linux/arm/v7
+      output: local

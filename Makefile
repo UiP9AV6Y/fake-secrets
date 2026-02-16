@@ -4,6 +4,11 @@ GOLANGCI_LINT_VERSION ?= $(shell $(GOLANGCI_LINT) version --short)
 GOLANG_VERSION ?= $(shell $(GO) env GOVERSION)
 BINGO_VERSION ?= $(shell $(BINGO) version)
 
+PREFIX ?= /usr/local
+bin_PROGRAM = $(notdir $(wildcard cmd/*))
+
+INSTALL ?= install
+
 .PHONY: default
 default: all
 
@@ -14,6 +19,10 @@ all: lint fmt test build
 	@echo golang $(GOLANG_VERSION:go%=%) > $@
 	@echo golangci-lint $(GOLANGCI_LINT_VERSION) >> $@
 	@echo bingo $(BINGO_VERSION:v%=%) >> $@
+
+.PHONY: tools
+tools: $(BINGO)
+	$(BINGO) get -l
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
@@ -34,3 +43,11 @@ build: generate
 .PHONY: generate
 generate:
 	$(GO) generate ./...
+
+.PHONY: dependencies
+dependencies:
+	$(GO) mod download -x
+
+.PHONY: install
+install:
+	$(INSTALL) -m 0755 -D -t $(DESTDIR)$(PREFIX)/bin $(addprefix $(GOBIN)/, $(bin_PROGRAM))

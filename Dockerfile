@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.26.0@sha256:21d68a382b318dde54771baf5e04393e0930d077583c8010e4fd83adae328eda AS build-cache
+FROM docker.io/library/golang:1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5 AS build-cache
 
 WORKDIR /build
 
@@ -18,7 +18,7 @@ ENV CGO_ENABLED=0
 RUN set -xe ; \
     make build install DESTDIR=/target
 
-FROM gcr.io/distroless/base-debian13:latest@sha256:2a1bdb588ba3d6096fe12705ca67d7b04a6319dd16a456c79dbfb7e9e0e780aa AS release
+FROM gcr.io/distroless/base-debian13:latest@sha256:9fc4940908fb9f2dadfccba39b28a69043c75db3cef810c5653eac319121fcc3 AS release
 
 WORKDIR /data
 VOLUME /data

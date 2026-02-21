@@ -2,10 +2,15 @@ package fake
 
 import (
 	"crypto/x509/pkix"
+	"fmt"
+	"io"
 	"io/fs"
-	"net/http"
-	"strconv"
+	"log/slog"
+	nethttp "net/http"
 	"time"
+
+	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
+	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
 type StaticMeta struct {
@@ -13,13 +18,37 @@ type StaticMeta struct {
 	RemoteAddr string `json:"remote_address"`
 }
 
-func NewStaticMeta(r *http.Request) *StaticMeta {
+func NewStaticMeta(r *nethttp.Request) *StaticMeta {
 	result := &StaticMeta{
 		Method:     r.Method,
 		RemoteAddr: r.RemoteAddr,
 	}
 
 	return result
+}
+
+func (m *StaticMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *StaticMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("method", m.Method),
+		slog.String("remote_address", m.RemoteAddr),
+	}
+
+	return attrs
+}
+
+func (m *StaticMeta) String() string {
+	return DescribeStruct(m, "StaticMeta")
+}
+
+func (m *StaticMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = fmt.Fprintf(w, ", method=%s", m.Method)
+	_, _ = fmt.Fprintf(w, ", remote_address=%s", m.RemoteAddr)
+
+	return 0, nil
 }
 
 type FileMeta struct {
@@ -29,7 +58,7 @@ type FileMeta struct {
 	Modified int64 `json:"modified,omitempty"`
 }
 
-func NewFileMeta(info fs.FileInfo, r *http.Request) *FileMeta {
+func NewFileMeta(info fs.FileInfo, r *nethttp.Request) *FileMeta {
 	static := NewStaticMeta(r)
 	result := &FileMeta{
 		StaticMeta: *static,
@@ -40,13 +69,38 @@ func NewFileMeta(info fs.FileInfo, r *http.Request) *FileMeta {
 	return result
 }
 
+func (m *FileMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *FileMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Int64("size", m.Size),
+		slog.Int64("modified", m.Modified),
+	}
+
+	return append(attrs, m.StaticMeta.LogAttrs()...)
+}
+
+func (m *FileMeta) String() string {
+	return DescribeStruct(m, "FileMeta")
+}
+
+func (m *FileMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", size=%d", m.Size)
+	_, _ = fmt.Fprintf(w, ", modified=%d", m.Modified)
+
+	return 0, nil
+}
+
 type TokenMeta struct {
 	StaticMeta `json:",inline"`
 
 	Seed string `json:"seed,omitempty"`
 }
 
-func NewTokenMeta(seed string, r *http.Request) *TokenMeta {
+func NewTokenMeta(seed string, r *nethttp.Request) *TokenMeta {
 	static := NewStaticMeta(r)
 	result := &TokenMeta{
 		StaticMeta: *static,
@@ -54,6 +108,29 @@ func NewTokenMeta(seed string, r *http.Request) *TokenMeta {
 	}
 
 	return result
+}
+
+func (m *TokenMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *TokenMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("seed", m.Seed),
+	}
+
+	return append(attrs, m.StaticMeta.LogAttrs()...)
+}
+
+func (m *TokenMeta) String() string {
+	return DescribeStruct(m, "TokenMeta")
+}
+
+func (m *TokenMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", seed=%s", m.Seed)
+
+	return 0, nil
 }
 
 type PasswordMeta struct {
@@ -67,33 +144,33 @@ type PasswordMeta struct {
 	Special bool `json:"special"`
 }
 
-func ParsePasswordMeta(r *http.Request) (*PasswordMeta, error) {
+func ParsePasswordMeta(r *nethttp.Request) (*PasswordMeta, error) {
 	err := r.ParseForm()
 	if err != nil {
 		return nil, err
 	}
 
-	length, err := ParseFormInt(r, "length", 12)
+	length, err := http.ParseFormInt(r, "length", 12)
 	if err != nil {
 		return nil, err
 	}
 
-	upper, err := ParseFormBool(r, "upper", false)
+	upper, err := http.ParseFormBool(r, "upper", false)
 	if err != nil {
 		return nil, err
 	}
 
-	lower, err := ParseFormBool(r, "lower", false)
+	lower, err := http.ParseFormBool(r, "lower", false)
 	if err != nil {
 		return nil, err
 	}
 
-	numeric, err := ParseFormBool(r, "numeric", false)
+	numeric, err := http.ParseFormBool(r, "numeric", false)
 	if err != nil {
 		return nil, err
 	}
 
-	special, err := ParseFormBool(r, "special", false)
+	special, err := http.ParseFormBool(r, "special", false)
 	if err != nil {
 		return nil, err
 	}
@@ -117,21 +194,116 @@ func ParsePasswordMeta(r *http.Request) (*PasswordMeta, error) {
 	return result, nil
 }
 
-type SSHMeta struct {
-	StaticMeta `json:",inline"`
-
-	Hostname string `json:"hostname,omitempty"`
-
-	Length int `json:"length,omitempty"`
+func (m *PasswordMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
 }
 
-func ParseSSHMeta(hostname string, r *http.Request) (*SSHMeta, error) {
+func (m *PasswordMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Int("length", m.Length),
+		slog.Bool("upper", m.Upper),
+		slog.Bool("lower", m.Lower),
+		slog.Bool("numeric", m.Numeric),
+		slog.Bool("special", m.Special),
+	}
+
+	return append(attrs, m.StaticMeta.LogAttrs()...)
+}
+
+func (m *PasswordMeta) String() string {
+	return DescribeStruct(m, "PasswordMeta")
+}
+
+func (m *PasswordMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", length=%d", m.Length)
+	_, _ = fmt.Fprintf(w, ", upper=%t", m.Upper)
+	_, _ = fmt.Fprintf(w, ", lower=%t", m.Lower)
+	_, _ = fmt.Fprintf(w, ", numeric=%t", m.Numeric)
+	_, _ = fmt.Fprintf(w, ", special=%t", m.Special)
+
+	return 0, nil
+}
+
+type CryptoMeta struct {
+	Subject string `json:"subject,omitempty"`
+
+	Length     int               `json:"length,omitempty"`
+	Algorithm  crypto.Algorithm  `json:"algorithm,omitempty"`
+	ECDSACurve crypto.ECDSACurve `json:"ecdsa_curve,omitempty"`
+}
+
+func ParseCryptoMeta(subject string, r *nethttp.Request) (*CryptoMeta, error) {
 	err := r.ParseForm()
 	if err != nil {
 		return nil, err
 	}
 
-	length, err := ParseFormInt(r, "length", 4096)
+	length, err := http.ParseFormInt(r, "length", 4096)
+	if err != nil {
+		return nil, err
+	}
+
+	algo, err := http.ParseFormCryptoAlgorithm(r, "algorithm", crypto.AlgorithmRSA)
+	if err != nil {
+		return nil, err
+	}
+
+	curve, err := http.ParseFormECDSACurve(r, "curve", crypto.ECDSACurveP256)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &CryptoMeta{
+		Subject:    subject,
+		Length:     int(length),
+		Algorithm:  algo,
+		ECDSACurve: curve,
+	}
+
+	return result, nil
+}
+
+func (m *CryptoMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *CryptoMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("subject", m.Subject),
+		slog.Int("length", m.Length),
+		slog.Any("algorithm", m.Algorithm),
+		slog.Any("ecdsa_curve", m.ECDSACurve),
+	}
+
+	return attrs
+}
+
+func (m *CryptoMeta) String() string {
+	return DescribeStruct(m, "CryptoMeta")
+}
+
+func (m *CryptoMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = fmt.Fprintf(w, ", subject=%s", m.Subject)
+	_, _ = fmt.Fprintf(w, ", length=%d", m.Length)
+	_, _ = fmt.Fprintf(w, ", algorithm=%s", m.Algorithm)
+	_, _ = fmt.Fprintf(w, ", ecdsa_curve=%s", m.ECDSACurve)
+
+	return 0, nil
+}
+
+type SSHMeta struct {
+	StaticMeta `json:",inline"`
+	CryptoMeta `json:",inline"`
+}
+
+func ParseSSHMeta(hostname string, r *nethttp.Request) (*SSHMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	crypt, err := ParseCryptoMeta(hostname, r)
 	if err != nil {
 		return nil, err
 	}
@@ -139,57 +311,104 @@ func ParseSSHMeta(hostname string, r *http.Request) (*SSHMeta, error) {
 	static := NewStaticMeta(r)
 	result := &SSHMeta{
 		StaticMeta: *static,
-		Hostname:   hostname,
-		Length:     int(length),
+		CryptoMeta: *crypt,
 	}
 
 	return result, nil
 }
 
+func (m *SSHMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *SSHMeta) LogAttrs() []slog.Attr {
+	attrs := append([]slog.Attr{}, m.StaticMeta.LogAttrs()...)
+
+	return append(attrs, m.CryptoMeta.LogAttrs()...)
+}
+
+func (m *SSHMeta) String() string {
+	return DescribeStruct(m, "SSHMeta")
+}
+
+func (m *SSHMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = m.CryptoMeta.StructWriteTo(w)
+
+	return 0, nil
+}
+
 type TLSMeta struct {
 	StaticMeta `json:",inline"`
+	CryptoMeta `json:",inline"`
 
-	Hostname     string `json:"hostname,omitempty"`
 	Organization string `json:"organization,omitempty"`
 
-	Length   int   `json:"length,omitempty"`
 	ValidFor int64 `json:"valid_for,omitempty"`
 	ValidAt  int64 `json:"valid_at,omitempty"`
 }
 
-func ParseTLSMeta(hostname string, start time.Time, r *http.Request) (*TLSMeta, error) {
+func ParseTLSMeta(hostname string, start time.Time, r *nethttp.Request) (*TLSMeta, error) {
 	err := r.ParseForm()
 	if err != nil {
 		return nil, err
 	}
 
-	length, err := ParseFormInt(r, "length", 2048)
+	crypt, err := ParseCryptoMeta(hostname, r)
 	if err != nil {
 		return nil, err
 	}
 
-	validAt, err := ParseFormInt(r, "valid_at", start.Unix())
+	validAt, err := http.ParseFormInt(r, "valid_at", start.Unix())
 	if err != nil {
 		return nil, err
 	}
 
-	validFor, err := ParseFormInt(r, "valid_for", 60*60*24*90) // 90 days
+	validFor, err := http.ParseFormInt(r, "valid_for", 60*60*24*90) // 90 days
 	if err != nil {
 		return nil, err
 	}
 
-	organization := ParseFormString(r, "organization", "Acme Co")
+	organization := http.ParseFormString(r, "organization", "Acme Co")
 	static := NewStaticMeta(r)
 	result := &TLSMeta{
 		StaticMeta:   *static,
-		Hostname:     hostname,
+		CryptoMeta:   *crypt,
 		Organization: organization,
-		Length:       int(length),
 		ValidFor:     validFor,
 		ValidAt:      validAt,
 	}
 
 	return result, nil
+}
+
+func (m *TLSMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *TLSMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("organization", m.Organization),
+		slog.Int64("valid_for", m.ValidFor),
+		slog.Int64("valid_at", m.ValidAt),
+	}
+	attrs = append(attrs, m.StaticMeta.LogAttrs()...)
+
+	return append(attrs, m.CryptoMeta.LogAttrs()...)
+}
+
+func (m *TLSMeta) String() string {
+	return DescribeStruct(m, "TLSMeta")
+}
+
+func (m *TLSMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = m.CryptoMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", organization=%s", m.Organization)
+	_, _ = fmt.Fprintf(w, ", valid_for=%d", m.ValidFor)
+	_, _ = fmt.Fprintf(w, ", valid_at=%d", m.ValidAt)
+
+	return 0, nil
 }
 
 func (m *TLSMeta) NotBefore() time.Time {
@@ -210,45 +429,8 @@ func (m *TLSMeta) Subject() pkix.Name {
 
 func (m *TLSMeta) SubjectAltNames() []string {
 	result := []string{
-		m.Hostname,
+		m.CryptoMeta.Subject,
 	}
 
 	return result
-}
-
-func ParseFormString(r *http.Request, field, fallback string) string {
-	value := r.FormValue(field)
-	if value == "" {
-		return fallback
-	}
-
-	return value
-}
-
-func ParseFormBool(r *http.Request, field string, fallback bool) (bool, error) {
-	value := r.FormValue(field)
-	if value == "" {
-		return fallback, nil
-	}
-
-	result, err := strconv.ParseBool(value)
-	if err != nil {
-		return fallback, err
-	}
-
-	return result, nil
-}
-
-func ParseFormInt(r *http.Request, field string, fallback int64) (int64, error) {
-	value := r.FormValue(field)
-	if value == "" {
-		return fallback, nil
-	}
-
-	result, err := strconv.ParseInt(value, 10, 64)
-	if err != nil || result <= 0 {
-		return fallback, err
-	}
-
-	return result, nil
 }

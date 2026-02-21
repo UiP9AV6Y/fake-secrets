@@ -1,7 +1,6 @@
 package fake
 
 import (
-	"crypto/x509"
 	"encoding/pem"
 	"log/slog"
 	"math/rand"
@@ -14,18 +13,36 @@ import (
 )
 
 type SSHHandler struct {
-	logger *slog.Logger
-	rsa    *cache.RSACache
+	logger  *slog.Logger
+	rsa     *cache.RSACache
+	ecdsa   *cache.ECDSACache
+	ed25519 *cache.ED25519Cache
 }
 
 func NewSSHHandler(rnd *rand.Rand, logger *slog.Logger) *SSHHandler {
 	rsa := cache.NewRSACache(rnd)
+	ecdsa := cache.NewECDSACache(rnd)
+	ed25519 := cache.NewED25519Cache(rnd)
 	result := &SSHHandler{
-		logger: logger,
-		rsa:    rsa,
+		logger:  logger,
+		rsa:     rsa,
+		ecdsa:   ecdsa,
+		ed25519: ed25519,
 	}
 
 	return result
+}
+
+func (h *SSHHandler) RSACache() *cache.RSACache {
+	return h.rsa
+}
+
+func (h *SSHHandler) ECDSACache() *cache.ECDSACache {
+	return h.ecdsa
+}
+
+func (h *SSHHandler) ED25519Cache() *cache.ED25519Cache {
+	return h.ed25519
 }
 
 func (h *SSHHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -36,15 +53,15 @@ func (h *SSHHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 		return
 	}
 
-	h.logger.Debug("serving generated SSH certificate", "length", meta.Length, "hostname", meta.Hostname)
+	h.logger.Debug("serving generated SSH certificate", "meta", meta)
 
-	key, err := h.rsa.Load(meta.Hostname, meta.Length)
+	key, _, err := LoadHandlerKey(h, &meta.CryptoMeta)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
 	}
 
-	cert, err := ssh.NewPublicKey(&key.PublicKey)
+	cert, err := ssh.NewPublicKey(key)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -63,18 +80,18 @@ func (h *SSHHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reques
 		return
 	}
 
-	h.logger.Debug("serving generated SSH certificate", "length", meta.Length, "hostname", meta.Hostname)
+	h.logger.Debug("serving generated SSH certificate", "meta", meta)
 
-	key, err := h.rsa.Load(meta.Hostname, meta.Length)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
 	}
 
-	der := x509.MarshalPKCS1PrivateKey(key)
-	block := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: der,
+	block, err := ssh.MarshalPrivateKey(key, "")
+	if err != nil {
+		http.ServeError(w, nethttp.StatusInternalServerError, err)
+		return
 	}
 
 	data := pem.EncodeToMemory(block)

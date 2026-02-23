@@ -6,6 +6,7 @@
 *.html
 *.out
 *.so
+*.tmp
 *.test
 *.work
 *.work.sum

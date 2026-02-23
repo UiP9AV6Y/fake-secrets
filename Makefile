@@ -1,4 +1,5 @@
 include .bingo/Variables.mk
+include .changes/changelog.mk
 
 GOLANGCI_LINT_VERSION ?= $(shell $(GOLANGCI_LINT) version --short)
 GOLANG_VERSION ?= $(shell $(GO) env GOVERSION)
@@ -51,3 +52,9 @@ dependencies:
 .PHONY: install
 install:
 	$(INSTALL) -m 0755 -D -t $(DESTDIR)$(PREFIX)/bin $(addprefix $(GOBIN)/, $(bin_PROGRAM))
+
+CHANGELOG.md: $(CHANGE_DIR)/CHANGELOG-v.md.tmp
+	sed -n -e '/## /q;p' $@ > $@.tmp
+	cat $^ >> $@.tmp
+	sed -n -e '/## /,$$p' $@ >> $@.tmp
+	mv $@.tmp $@

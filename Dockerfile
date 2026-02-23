@@ -3,6 +3,7 @@ FROM docker.io/library/golang:1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d10811
 WORKDIR /build
 
 COPY .bingo/ .bingo/
+COPY .changes/ .changes/
 COPY go.mod go.sum Makefile ./
 
 ENV GOCACHE=/var/cache/go/src \

@@ -40,17 +40,45 @@ func (h *GeneratorHandler) ServeStatic(w nethttp.ResponseWriter, r *nethttp.Requ
 	http.ServeSecret(w, data, meta)
 }
 
-func (h *GeneratorHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
+func (h *GeneratorHandler) ServeAPIKey(w nethttp.ResponseWriter, r *nethttp.Request) {
 	name := r.PathValue("seed")
-	meta := NewTokenMeta(name, r)
+	meta, err := ParseAPIKeyMeta(name, r)
+	if err != nil {
+		http.ServeError(w, nethttp.StatusBadRequest, err)
+		return
+	}
 
 	var data []byte
-	var err error
 	if name == "" {
-		h.logger.Debug("serving random token secret")
+		h.logger.Debug("serving random API key secret", "meta", meta)
+		data, err = generateRandomAPIKey(h.rnd, meta.Label())
+	} else {
+		h.logger.Debug("serving seeded API key secret", "meta", meta)
+		data, err = generateSeededAPIKey([]byte(name), meta.Label())
+	}
+
+	if err != nil {
+		http.ServeError(w, nethttp.StatusBadRequest, err)
+		return
+	}
+
+	http.ServeSecret(w, data, meta)
+}
+
+func (h *GeneratorHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
+	name := r.PathValue("seed")
+	meta, err := ParseTokenMeta(name, r)
+	if err != nil {
+		http.ServeError(w, nethttp.StatusBadRequest, err)
+		return
+	}
+
+	var data []byte
+	if name == "" {
+		h.logger.Debug("serving random token secret", "meta", meta)
 		data, err = generateRandomUUID(h.rnd)
 	} else {
-		h.logger.Debug("serving seeded token secret", "seed", name)
+		h.logger.Debug("serving seeded token secret", "meta", meta)
 		data, err = generateSeededUUID(name)
 	}
 

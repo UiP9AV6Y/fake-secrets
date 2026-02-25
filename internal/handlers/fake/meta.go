@@ -94,20 +94,93 @@ func (m *FileMeta) StructWriteTo(w io.Writer) (int, error) {
 	return 0, nil
 }
 
+type APIKeyMeta struct {
+	StaticMeta `json:",inline"`
+
+	Seed         string `json:"seed,omitempty"`
+	Type         string `json:"type,omitempty"`
+	Organization string `json:"organization,omitempty"`
+}
+
+func ParseAPIKeyMeta(seed string, r *nethttp.Request) (*APIKeyMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	ttype := http.ParseFormString(r, "type", "p")
+	if l := len(ttype); l > 5 {
+		return nil, fmt.Errorf("token type is too long %d/5", l)
+	}
+
+	organization := http.ParseFormString(r, "organization", "fs")
+	if l := len(organization); l > 5 {
+		return nil, fmt.Errorf("token organization is too long %d/5", l)
+	}
+
+	static := NewStaticMeta(r)
+	result := &APIKeyMeta{
+		StaticMeta:   *static,
+		Seed:         seed,
+		Type:         ttype,
+		Organization: organization,
+	}
+
+	return result, nil
+}
+
+func (m *APIKeyMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *APIKeyMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("seed", m.Seed),
+		slog.String("type", m.Type),
+		slog.String("organization", m.Organization),
+	}
+
+	return append(attrs, m.StaticMeta.LogAttrs()...)
+}
+
+func (m *APIKeyMeta) String() string {
+	return DescribeStruct(m, "APIKeyMeta")
+}
+
+func (m *APIKeyMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", seed=%s", m.Seed)
+	_, _ = fmt.Fprintf(w, ", type=%s", m.Type)
+	_, _ = fmt.Fprintf(w, ", organization=%s", m.Organization)
+
+	return 0, nil
+}
+
+func (m *APIKeyMeta) Label() []byte {
+	s := m.Organization + m.Type
+
+	return []byte(s)
+}
+
 type TokenMeta struct {
 	StaticMeta `json:",inline"`
 
 	Seed string `json:"seed,omitempty"`
 }
 
-func NewTokenMeta(seed string, r *nethttp.Request) *TokenMeta {
+func ParseTokenMeta(seed string, r *nethttp.Request) (*TokenMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
 	static := NewStaticMeta(r)
 	result := &TokenMeta{
 		StaticMeta: *static,
 		Seed:       seed,
 	}
 
-	return result
+	return result, nil
 }
 
 func (m *TokenMeta) LogValue() slog.Value {

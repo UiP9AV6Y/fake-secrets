@@ -25,6 +25,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	router.HandleFunc(cfg.HandlerPattern("passwords", "{secret}"), generator.ServeStatic)
 	router.HandleFunc(cfg.HandlerPattern("tokens"), generator.ServeToken)
 	router.HandleFunc(cfg.HandlerPattern("tokens", "{seed}"), generator.ServeToken)
+	router.HandleFunc(cfg.HandlerPattern("apikeys"), generator.ServeAPIKey)
+	router.HandleFunc(cfg.HandlerPattern("apikeys", "{seed}"), generator.ServeAPIKey)
 	router.HandleFunc(cfg.HandlerPattern("ssh", "{hostname}", "certificates"), ssh.ServeCertificate)
 	router.HandleFunc(cfg.HandlerPattern("ssh", "{hostname}", "keys"), ssh.ServePrivateKey)
 	router.HandleFunc(cfg.HandlerPattern("tls", "{hostname}", "certificates"), tls.ServeCertificate)

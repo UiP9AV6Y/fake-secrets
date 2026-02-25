@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/lestrrat-go/jwx/v3/jwa"
 )
 
 type Algorithm int
@@ -22,6 +24,12 @@ var algorithmImpl = map[string]Algorithm{
 	"ECDSA":   AlgorithmECDSA,
 	"EDDSA":   AlgorithmED25519,
 	"ED25519": AlgorithmED25519,
+}
+
+var algorithmSignatures = map[Algorithm]jwa.SignatureAlgorithm{
+	AlgorithmRSA:     jwa.RS256(), // opiniated default
+	AlgorithmECDSA:   jwa.ES256(),
+	AlgorithmED25519: jwa.EdDSA(),
 }
 
 func ParseAlgorithm(a string) (algo Algorithm, err error) {
@@ -61,6 +69,10 @@ func (a Algorithm) String() string {
 	default:
 		return "unknown crypto algorithm " + strconv.Itoa(int(a))
 	}
+}
+
+func (a Algorithm) SignatureAlgorithm() jwa.SignatureAlgorithm {
+	return algorithmSignatures[a]
 }
 
 func PublicKey(key interface{}) interface{} {

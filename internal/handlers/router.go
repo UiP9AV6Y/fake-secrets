@@ -19,6 +19,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	generator := fake.NewGeneratorHandler(random, logger)
 	ssh := fake.NewSSHHandler(random, logger)
 	tls := fake.NewTLSHandler(now, random, logger)
+	jwt := fake.NewJWTHandler(now, random, logger)
 
 	router.HandleFunc("/", index.ServeHTTP)
 	router.HandleFunc(cfg.HandlerPattern("passwords"), generator.ServePassword)
@@ -31,6 +32,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	router.HandleFunc(cfg.HandlerPattern("ssh", "{hostname}", "keys"), ssh.ServePrivateKey)
 	router.HandleFunc(cfg.HandlerPattern("tls", "{hostname}", "certificates"), tls.ServeCertificate)
 	router.HandleFunc(cfg.HandlerPattern("tls", "{hostname}", "keys"), tls.ServePrivateKey)
+	router.HandleFunc(cfg.HandlerPattern("jwt", "{issuer}", "certificates"), jwt.ServeCertificate)
+	router.HandleFunc(cfg.HandlerPattern("jwt", "{issuer}", "keys"), jwt.ServePrivateKey)
+	router.HandleFunc(cfg.HandlerPattern("jwt", "{issuer}", "tokens"), jwt.ServeToken)
 	router.Handle(cfg.HandlerPattern(health.URLPath), status)
 
 	if cfg.StorageDir != "" {

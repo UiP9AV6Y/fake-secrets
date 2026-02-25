@@ -9,6 +9,8 @@ import (
 	nethttp "net/http"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v3/jwa"
+
 	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
@@ -506,4 +508,119 @@ func (m *TLSMeta) SubjectAltNames() []string {
 	}
 
 	return result
+}
+
+type JWTMeta struct {
+	StaticMeta `json:",inline"`
+	CryptoMeta `json:",inline"`
+
+	Audience string `json:"audience,omitempty"`
+	Subject  string `json:"subject,omitempty"`
+
+	ValidFor int64 `json:"valid_for,omitempty"`
+	ValidAt  int64 `json:"valid_at,omitempty"`
+	IssuedAt int64 `json:"issued_at,omitempty"`
+}
+
+func ParseJWTMeta(issuer string, start time.Time, r *nethttp.Request) (*JWTMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	crypt, err := ParseCryptoMeta(issuer, r)
+	if err != nil {
+		return nil, err
+	}
+
+	issuedAt, err := http.ParseFormInt(r, "issued_at", start.Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	validAt, err := http.ParseFormInt(r, "valid_at", start.Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	validFor, err := http.ParseFormInt(r, "valid_for", 60*60*2) // 2 hours
+	if err != nil {
+		return nil, err
+	}
+
+	if crypt.ECDSACurve == crypto.ECDSACurveP224 {
+		return nil, fmt.Errorf("unsupported ECDSA curve: %s", crypt.ECDSACurve)
+	}
+
+	audience := http.ParseFormString(r, "audience", "")
+	subject := http.ParseFormString(r, "subject", "")
+	static := NewStaticMeta(r)
+	result := &JWTMeta{
+		StaticMeta: *static,
+		CryptoMeta: *crypt,
+		Audience:   audience,
+		Subject:    subject,
+		ValidFor:   validFor,
+		ValidAt:    validAt,
+		IssuedAt:   issuedAt,
+	}
+
+	return result, nil
+}
+
+func (m *JWTMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *JWTMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("audience", m.Audience),
+		slog.String("subject", m.Subject),
+		slog.Int64("valid_for", m.ValidFor),
+		slog.Int64("valid_at", m.ValidAt),
+		slog.Int64("issued_at", m.IssuedAt),
+	}
+	attrs = append(attrs, m.StaticMeta.LogAttrs()...)
+
+	return append(attrs, m.CryptoMeta.LogAttrs()...)
+}
+
+func (m *JWTMeta) String() string {
+	return DescribeStruct(m, "JWTMeta")
+}
+
+func (m *JWTMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = m.CryptoMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", audience=%s", m.Audience)
+	_, _ = fmt.Fprintf(w, ", subject=%s", m.Subject)
+	_, _ = fmt.Fprintf(w, ", valid_for=%d", m.ValidFor)
+	_, _ = fmt.Fprintf(w, ", valid_at=%d", m.ValidAt)
+	_, _ = fmt.Fprintf(w, ", issued_at=%d", m.IssuedAt)
+
+	return 0, nil
+}
+
+func (m *JWTMeta) IssuedAtClaim() time.Time {
+	return time.Unix(m.IssuedAt, 0)
+}
+
+func (m *JWTMeta) NotBeforeClaim() time.Time {
+	return time.Unix(m.ValidAt, 0)
+}
+
+func (m *JWTMeta) ExpirationClaim() time.Time {
+	return time.Unix(m.ValidAt+m.ValidFor, 0)
+}
+
+func (m *JWTMeta) IssuerClaim() string {
+	return "http://" + m.CryptoMeta.Subject
+}
+
+func (m *JWTMeta) SignatureAlgorithm() jwa.SignatureAlgorithm {
+	if m.Algorithm == crypto.AlgorithmECDSA {
+		return m.ECDSACurve.SignatureAlgorithm()
+	}
+
+	return m.Algorithm.SignatureAlgorithm()
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/lestrrat-go/jwx/v3/jwa"
 )
 
 type ECDSACurve int
@@ -21,6 +23,13 @@ var ecdsaCurves = map[ECDSACurve]elliptic.Curve{
 	ECDSACurveP256: elliptic.P256(),
 	ECDSACurveP384: elliptic.P384(),
 	ECDSACurveP521: elliptic.P521(),
+}
+
+var ecdsaSignatures = map[ECDSACurve]jwa.SignatureAlgorithm{
+	// jwx does not provide any SHA224-based signers
+	ECDSACurveP256: jwa.ES256(),
+	ECDSACurveP384: jwa.ES384(),
+	ECDSACurveP521: jwa.ES512(),
 }
 
 var ecdsaImpl = map[string]ECDSACurve{
@@ -74,4 +83,8 @@ func (c ECDSACurve) String() string {
 
 func (c ECDSACurve) Curve() elliptic.Curve {
 	return ecdsaCurves[c]
+}
+
+func (c ECDSACurve) SignatureAlgorithm() jwa.SignatureAlgorithm {
+	return ecdsaSignatures[c]
 }

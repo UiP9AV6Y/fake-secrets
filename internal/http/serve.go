@@ -20,6 +20,16 @@ func ServeError(w nethttp.ResponseWriter, code int, err error) {
 	ServeJSON(w, dto)
 }
 
+func ServeSecretObject(w nethttp.ResponseWriter, data, meta interface{}) {
+	secret, err := json.Marshal(data)
+	if err != nil {
+		ServeError(w, nethttp.StatusInternalServerError, err)
+		return
+	}
+
+	ServeSecret(w, secret, meta)
+}
+
 func ServeSecret(w nethttp.ResponseWriter, data []byte, meta interface{}) {
 	secret := bytes.TrimSpace(data)
 	dto := map[string]interface{}{

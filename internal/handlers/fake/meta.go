@@ -256,6 +256,10 @@ func ParsePasswordMeta(r *nethttp.Request) (*PasswordMeta, error) {
 		numeric = true
 	}
 
+	if length <= 0 {
+		return nil, fmt.Errorf("length must be a positive value, got %d", length)
+	}
+
 	static := NewStaticMeta(r)
 	result := &PasswordMeta{
 		StaticMeta: *static,
@@ -327,6 +331,10 @@ func ParseCryptoMeta(subject string, r *nethttp.Request) (*CryptoMeta, error) {
 	curve, err := http.ParseFormECDSACurve(r, "curve", crypto.ECDSACurveP256)
 	if err != nil {
 		return nil, err
+	}
+
+	if length <= 0 {
+		return nil, fmt.Errorf("length must be a positive value, got %d", length)
 	}
 
 	result := &CryptoMeta{
@@ -444,6 +452,10 @@ func ParseTLSMeta(hostname string, start time.Time, r *nethttp.Request) (*TLSMet
 		return nil, err
 	}
 
+	if validFor <= 0 {
+		return nil, fmt.Errorf("valid_for must be a positive value, got %d", validFor)
+	}
+
 	organization := http.ParseFormString(r, "organization", "Acme Co")
 	static := NewStaticMeta(r)
 	result := &TLSMeta{
@@ -550,6 +562,10 @@ func ParseJWTMeta(issuer string, start time.Time, r *nethttp.Request) (*JWTMeta,
 
 	if crypt.ECDSACurve == crypto.ECDSACurveP224 {
 		return nil, fmt.Errorf("unsupported ECDSA curve: %s", crypt.ECDSACurve)
+	}
+
+	if validFor <= 0 {
+		return nil, fmt.Errorf("valid_for must be a positive value, got %d", validFor)
 	}
 
 	audience := http.ParseFormString(r, "audience", "")

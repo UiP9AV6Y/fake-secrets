@@ -2,61 +2,35 @@ package cache
 
 import (
 	"crypto/ed25519"
-	"fmt"
-	"math/rand"
-	"sync"
+	"crypto/rand"
+	"hash/maphash"
+	"io"
 )
 
-type ED25519Cache struct {
-	store map[string]ed25519.PrivateKey
-	lock  sync.RWMutex
-	rnd   *rand.Rand
+type ED25519Loader struct {
+	Hostname string
+	Random   io.Reader
 }
 
-func NewED25519Cache(rnd *rand.Rand) *ED25519Cache {
-	result := &ED25519Cache{
-		rnd: rnd,
-	}
+func (l *ED25519Loader) Hash(seed maphash.Seed) uint64 {
+	var h maphash.Hash
 
-	return result
+	h.SetSeed(seed)
+	_, _ = h.WriteString(l.Hostname)
+
+	return h.Sum64()
 }
 
-func (c *ED25519Cache) Load(hostname string) (key ed25519.PrivateKey, err error) {
-	var ok bool
-	pk := fmt.Sprintf("ed25519-%s", hostname)
-
-	c.lock.RLock()
-	key, ok = c.store[pk]
-	c.lock.RUnlock()
-	if ok {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	key, ok = c.store[pk]
-	if ok {
-		return
-	}
-
-	key, err = c.generateED25519Key()
-	if err != nil {
-		return
-	}
-
-	if c.store == nil {
-		c.store = map[string]ed25519.PrivateKey{
-			pk: key,
-		}
+func (l *ED25519Loader) Load() (key ed25519.PrivateKey, err error) {
+	if l.Random == nil {
+		_, key, err = ed25519.GenerateKey(rand.Reader)
 	} else {
-		c.store[pk] = key
+		_, key, err = ed25519.GenerateKey(l.Random)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return
-}
-
-func (c *ED25519Cache) generateED25519Key() (ed25519.PrivateKey, error) {
-	_, priv, err := ed25519.GenerateKey(c.rnd)
-
-	return priv, err
 }

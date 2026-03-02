@@ -1,10 +1,13 @@
 package fake
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"log/slog"
-	"math/rand"
 	"net"
 	nethttp "net/http"
 	"time"
@@ -16,39 +19,41 @@ import (
 
 type TLSHandler struct {
 	logger  *slog.Logger
-	rsa     *cache.RSACache
-	ecdsa   *cache.ECDSACache
-	ed25519 *cache.ED25519Cache
-	cert    *cache.CertCache
 	start   time.Time
+	rand    io.Reader
+	rsa     cache.Cacher[*rsa.PrivateKey]
+	ecdsa   cache.Cacher[*ecdsa.PrivateKey]
+	ed25519 cache.Cacher[ed25519.PrivateKey]
+	cert    cache.Cacher[crypto.Certificate]
 }
 
-func NewTLSHandler(start time.Time, rnd *rand.Rand, logger *slog.Logger) *TLSHandler {
-	rsa := cache.NewRSACache(rnd)
-	ecdsa := cache.NewECDSACache(rnd)
-	ed25519 := cache.NewED25519Cache(rnd)
-	cert := cache.NewCertCache(rnd, nil)
+func NewTLSHandler(start time.Time, rnd io.Reader, logger *slog.Logger) *TLSHandler {
+	rsa := cache.NewCacher[*rsa.PrivateKey]()
+	ecdsa := cache.NewCacher[*ecdsa.PrivateKey]()
+	ed25519 := cache.NewCacher[ed25519.PrivateKey]()
+	cert := cache.NewCacher[crypto.Certificate]()
 	result := &TLSHandler{
 		logger:  logger,
 		start:   start,
-		cert:    cert,
+		rand:    rnd,
 		rsa:     rsa,
 		ecdsa:   ecdsa,
 		ed25519: ed25519,
+		cert:    cert,
 	}
 
 	return result
 }
 
-func (h *TLSHandler) RSACache() *cache.RSACache {
+func (h *TLSHandler) RSACache() cache.Cacher[*rsa.PrivateKey] {
 	return h.rsa
 }
 
-func (h *TLSHandler) ECDSACache() *cache.ECDSACache {
+func (h *TLSHandler) ECDSACache() cache.Cacher[*ecdsa.PrivateKey] {
 	return h.ecdsa
 }
 
-func (h *TLSHandler) ED25519Cache() *cache.ED25519Cache {
+func (h *TLSHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
 }
 
@@ -62,7 +67,7 @@ func (h *TLSHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 
 	h.logger.Debug("serving generated TLS certificate", "meta", meta)
 
-	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -90,7 +95,12 @@ func (h *TLSHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 		}
 	}
 
-	der, err := h.cert.Load(template, key)
+	req := &cache.CertLoader{
+		Template: template,
+		Key:      key,
+		Random:   h.rand,
+	}
+	der, err := h.cert.Load(req)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -117,7 +127,7 @@ func (h *TLSHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reques
 
 	h.logger.Debug("serving generated TLS certificate", "meta", meta)
 
-	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return

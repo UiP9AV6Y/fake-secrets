@@ -1,8 +1,12 @@
 package fake
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
+	"crypto/x509"
+	"io"
 	"log/slog"
-	"math/rand"
 	nethttp "net/http"
 	"time"
 
@@ -15,36 +19,41 @@ import (
 
 type JWTHandler struct {
 	logger  *slog.Logger
-	rsa     *cache.RSACache
-	ecdsa   *cache.ECDSACache
-	ed25519 *cache.ED25519Cache
 	start   time.Time
+	rand    io.Reader
+	rsa     cache.Cacher[*rsa.PrivateKey]
+	ecdsa   cache.Cacher[*ecdsa.PrivateKey]
+	ed25519 cache.Cacher[ed25519.PrivateKey]
+	cert    cache.Cacher[*x509.Certificate]
 }
 
-func NewJWTHandler(start time.Time, rnd *rand.Rand, logger *slog.Logger) *JWTHandler {
-	rsa := cache.NewRSACache(rnd)
-	ecdsa := cache.NewECDSACache(rnd)
-	ed25519 := cache.NewED25519Cache(rnd)
+func NewJWTHandler(start time.Time, rnd io.Reader, logger *slog.Logger) *JWTHandler {
+	rsa := cache.NewCacher[*rsa.PrivateKey]()
+	ecdsa := cache.NewCacher[*ecdsa.PrivateKey]()
+	ed25519 := cache.NewCacher[ed25519.PrivateKey]()
+	cert := cache.NewCacher[*x509.Certificate]()
 	result := &JWTHandler{
 		logger:  logger,
 		start:   start,
+		rand:    rnd,
 		rsa:     rsa,
 		ecdsa:   ecdsa,
 		ed25519: ed25519,
+		cert:    cert,
 	}
 
 	return result
 }
 
-func (h *JWTHandler) RSACache() *cache.RSACache {
+func (h *JWTHandler) RSACache() cache.Cacher[*rsa.PrivateKey] {
 	return h.rsa
 }
 
-func (h *JWTHandler) ECDSACache() *cache.ECDSACache {
+func (h *JWTHandler) ECDSACache() cache.Cacher[*ecdsa.PrivateKey] {
 	return h.ecdsa
 }
 
-func (h *JWTHandler) ED25519Cache() *cache.ED25519Cache {
+func (h *JWTHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
 }
 
@@ -58,7 +67,7 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 
 	h.logger.Debug("serving generated JWT token", "meta", meta)
 
-	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -115,7 +124,7 @@ func (h *JWTHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 
 	h.logger.Debug("serving generated JWK public keyset", "meta", meta)
 
-	key, _, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	key, _, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -140,7 +149,7 @@ func (h *JWTHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reques
 
 	h.logger.Debug("serving generated JWK private keyset", "meta", meta)
 
-	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return

@@ -2,66 +2,45 @@ package cache
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
-	"sync"
+	"hash/maphash"
+	"io"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
 )
 
-type ECDSACache struct {
-	store map[string]*ecdsa.PrivateKey
-	lock  sync.RWMutex
-	rnd   *rand.Rand
+type ECDSALoader struct {
+	Hostname string
+	Curve    crypto.ECDSACurve
+	Random   io.Reader
 }
 
-func NewECDSACache(rnd *rand.Rand) *ECDSACache {
-	result := &ECDSACache{
-		rnd: rnd,
-	}
+func (l *ECDSALoader) Hash(seed maphash.Seed) uint64 {
+	var h maphash.Hash
 
-	return result
+	h.SetSeed(seed)
+	_, _ = h.WriteString(l.Hostname)
+	_, _ = h.WriteString(l.Curve.String())
+
+	return h.Sum64()
 }
 
-func (c *ECDSACache) Load(hostname string, curve crypto.ECDSACurve) (key *ecdsa.PrivateKey, err error) {
-	var ok bool
-	pk := fmt.Sprintf("ecdsa-%s-%s", hostname, curve)
-
-	c.lock.RLock()
-	key, ok = c.store[pk]
-	c.lock.RUnlock()
-	if ok {
-		return
+func (l *ECDSALoader) Load() (key *ecdsa.PrivateKey, err error) {
+	ell := l.Curve.Curve()
+	if ell == nil {
+		return nil, fmt.Errorf("no curve size available for %q", l.Curve)
 	}
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	key, ok = c.store[pk]
-	if ok {
-		return
-	}
-
-	key, err = c.generateECDSAKey(curve)
-	if err != nil {
-		return
-	}
-
-	if c.store == nil {
-		c.store = map[string]*ecdsa.PrivateKey{
-			pk: key,
-		}
+	if l.Random == nil {
+		key, err = ecdsa.GenerateKey(ell, rand.Reader)
 	} else {
-		c.store[pk] = key
+		key, err = ecdsa.GenerateKey(ell, l.Random)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return
-}
-
-func (c *ECDSACache) generateECDSAKey(curve crypto.ECDSACurve) (*ecdsa.PrivateKey, error) {
-	ell := curve.Curve()
-	if ell == nil {
-		return nil, fmt.Errorf("no curve size available for %q", curve)
-	}
-
-	return ecdsa.GenerateKey(ell, c.rnd)
 }

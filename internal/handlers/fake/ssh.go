@@ -1,9 +1,12 @@
 package fake
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"encoding/pem"
+	"io"
 	"log/slog"
-	"math/rand"
 	nethttp "net/http"
 
 	"golang.org/x/crypto/ssh"
@@ -14,17 +17,19 @@ import (
 
 type SSHHandler struct {
 	logger  *slog.Logger
-	rsa     *cache.RSACache
-	ecdsa   *cache.ECDSACache
-	ed25519 *cache.ED25519Cache
+	rand    io.Reader
+	rsa     cache.Cacher[*rsa.PrivateKey]
+	ecdsa   cache.Cacher[*ecdsa.PrivateKey]
+	ed25519 cache.Cacher[ed25519.PrivateKey]
 }
 
-func NewSSHHandler(rnd *rand.Rand, logger *slog.Logger) *SSHHandler {
-	rsa := cache.NewRSACache(rnd)
-	ecdsa := cache.NewECDSACache(rnd)
-	ed25519 := cache.NewED25519Cache(rnd)
+func NewSSHHandler(rnd io.Reader, logger *slog.Logger) *SSHHandler {
+	rsa := cache.NewCacher[*rsa.PrivateKey]()
+	ecdsa := cache.NewCacher[*ecdsa.PrivateKey]()
+	ed25519 := cache.NewCacher[ed25519.PrivateKey]()
 	result := &SSHHandler{
 		logger:  logger,
+		rand:    rnd,
 		rsa:     rsa,
 		ecdsa:   ecdsa,
 		ed25519: ed25519,
@@ -33,15 +38,15 @@ func NewSSHHandler(rnd *rand.Rand, logger *slog.Logger) *SSHHandler {
 	return result
 }
 
-func (h *SSHHandler) RSACache() *cache.RSACache {
+func (h *SSHHandler) RSACache() cache.Cacher[*rsa.PrivateKey] {
 	return h.rsa
 }
 
-func (h *SSHHandler) ECDSACache() *cache.ECDSACache {
+func (h *SSHHandler) ECDSACache() cache.Cacher[*ecdsa.PrivateKey] {
 	return h.ecdsa
 }
 
-func (h *SSHHandler) ED25519Cache() *cache.ED25519Cache {
+func (h *SSHHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
 }
 
@@ -55,7 +60,7 @@ func (h *SSHHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 
 	h.logger.Debug("serving generated SSH certificate", "meta", meta)
 
-	key, _, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	key, _, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return
@@ -82,7 +87,7 @@ func (h *SSHHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reques
 
 	h.logger.Debug("serving generated SSH certificate", "meta", meta)
 
-	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta)
+	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return

@@ -1,62 +1,35 @@
 package cache
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
-	"fmt"
-	"math/rand"
-	"sync"
+	"hash/maphash"
+	"io"
 )
 
-type RSACache struct {
-	store map[string]*rsa.PrivateKey
-	lock  sync.RWMutex
-	rnd   *rand.Rand
+type RSALoader struct {
+	Hostname string
+	Length   int
+	Random   io.Reader
 }
 
-func NewRSACache(rnd *rand.Rand) *RSACache {
-	result := &RSACache{
-		rnd: rnd,
-	}
+func (l *RSALoader) Hash(seed maphash.Seed) uint64 {
+	var h maphash.Hash
 
-	return result
+	h.SetSeed(seed)
+	_, _ = h.WriteString(l.Hostname)
+	_, _ = h.Write(Uint32Bytes(uint32(l.Length)))
+
+	return h.Sum64()
 }
 
-func (c *RSACache) Load(hostname string, length int) (key *rsa.PrivateKey, err error) {
-	var ok bool
-	pk := fmt.Sprintf("rsa-%s-%d", hostname, length)
-
-	c.lock.RLock()
-	key, ok = c.store[pk]
-	c.lock.RUnlock()
-	if ok {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	key, ok = c.store[pk]
-	if ok {
-		return
-	}
-
-	key, err = c.generateRSAKey(length)
-	if err != nil {
-		return
-	}
-
-	if c.store == nil {
-		c.store = map[string]*rsa.PrivateKey{
-			pk: key,
-		}
+func (l *RSALoader) Load() (key *rsa.PrivateKey, err error) {
+	if l.Random == nil {
+		key, err = rsa.GenerateKey(rand.Reader, l.Length)
 	} else {
-		c.store[pk] = key
+		key, err = rsa.GenerateKey(l.Random, l.Length)
 	}
 
-	return
-}
-
-func (c *RSACache) generateRSAKey(length int) (*rsa.PrivateKey, error) {
-	key, err := rsa.GenerateKey(c.rnd, length)
 	if err != nil {
 		return nil, err
 	}
@@ -65,5 +38,5 @@ func (c *RSACache) generateRSAKey(length int) (*rsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	return key, nil
+	return
 }

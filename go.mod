@@ -9,10 +9,12 @@ require (
 	github.com/jxskiss/base62 v1.1.0
 	github.com/lestrrat-go/jwx/v3 v3.0.13
 	github.com/oklog/run v1.2.0
+	github.com/pquerna/otp v1.5.0
 	golang.org/x/crypto v0.48.0
 )
 
 require (
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect

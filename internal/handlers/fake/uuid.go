@@ -1,12 +1,12 @@
 package fake
 
 import (
-	"math/rand"
+	"io"
 
 	"github.com/google/uuid"
 )
 
-func generateRandomUUID(rnd *rand.Rand) ([]byte, error) {
+func generateRandomUUID(rnd io.Reader) ([]byte, error) {
 	result, err := uuid.NewRandomFromReader(rnd)
 	if err != nil {
 		return nil, err

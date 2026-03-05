@@ -67,6 +67,12 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 
 	h.logger.Debug("serving generated JWT token", "meta", meta)
 
+	jti, err := generateRandomUUID(h.rand)
+	if err != nil {
+		http.ServeError(w, nethttp.StatusInternalServerError, err)
+		return
+	}
+
 	_, key, err := LoadHandlerKey(h, &meta.CryptoMeta, h.rand)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
@@ -88,7 +94,8 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 		Expiration(meta.ExpirationClaim()).
 		NotBefore(meta.NotBeforeClaim()).
 		IssuedAt(meta.IssuedAtClaim()).
-		Issuer(meta.IssuerClaim())
+		Issuer(meta.IssuerClaim()).
+		JwtID(string(jti))
 
 	if meta.Audience != "" {
 		b.Audience([]string{meta.Audience})

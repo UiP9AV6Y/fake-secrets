@@ -58,7 +58,7 @@ func (h *JWTHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 }
 
 func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
-	name := r.PathValue("issuer")
+	name := r.PathValue("subject")
 	meta, err := ParseJWTMeta(name, h.start, r)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusBadRequest, err)
@@ -94,15 +94,12 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 		Expiration(meta.ExpirationClaim()).
 		NotBefore(meta.NotBeforeClaim()).
 		IssuedAt(meta.IssuedAtClaim()).
+		Subject(meta.SubjectClaim()).
 		Issuer(meta.IssuerClaim()).
 		JwtID(string(jti))
 
 	if meta.Audience != "" {
 		b.Audience([]string{meta.Audience})
-	}
-
-	if meta.Subject != "" {
-		b.Subject(meta.Subject)
 	}
 
 	token, err := b.Build()
@@ -122,7 +119,7 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 }
 
 func (h *JWTHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Request) {
-	name := r.PathValue("issuer")
+	name := r.PathValue("subject")
 	meta, err := ParseJWTMeta(name, h.start, r)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusBadRequest, err)
@@ -147,7 +144,7 @@ func (h *JWTHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 }
 
 func (h *JWTHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Request) {
-	name := r.PathValue("issuer")
+	name := r.PathValue("subject")
 	meta, err := ParseJWTMeta(name, h.start, r)
 	if err != nil {
 		http.ServeError(w, nethttp.StatusBadRequest, err)

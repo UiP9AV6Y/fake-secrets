@@ -526,8 +526,8 @@ type JWTMeta struct {
 	StaticMeta `json:",inline"`
 	CryptoMeta `json:",inline"`
 
-	Audience string `json:"audience,omitempty"`
-	Subject  string `json:"subject,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Audience     string `json:"audience,omitempty"`
 
 	ValidFor int64 `json:"valid_for,omitempty"`
 	ValidAt  int64 `json:"valid_at,omitempty"`
@@ -568,17 +568,17 @@ func ParseJWTMeta(issuer string, start time.Time, r *nethttp.Request) (*JWTMeta,
 		return nil, fmt.Errorf("valid_for must be a positive value, got %d", validFor)
 	}
 
+	organization := http.ParseHeaderBaseURL(r)
 	audience := http.ParseFormString(r, "audience", "")
-	subject := http.ParseFormString(r, "subject", "")
 	static := NewStaticMeta(r)
 	result := &JWTMeta{
-		StaticMeta: *static,
-		CryptoMeta: *crypt,
-		Audience:   audience,
-		Subject:    subject,
-		ValidFor:   validFor,
-		ValidAt:    validAt,
-		IssuedAt:   issuedAt,
+		StaticMeta:   *static,
+		CryptoMeta:   *crypt,
+		Organization: organization,
+		Audience:     audience,
+		ValidFor:     validFor,
+		ValidAt:      validAt,
+		IssuedAt:     issuedAt,
 	}
 
 	return result, nil
@@ -590,8 +590,8 @@ func (m *JWTMeta) LogValue() slog.Value {
 
 func (m *JWTMeta) LogAttrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("organization", m.Organization),
 		slog.String("audience", m.Audience),
-		slog.String("subject", m.Subject),
 		slog.Int64("valid_for", m.ValidFor),
 		slog.Int64("valid_at", m.ValidAt),
 		slog.Int64("issued_at", m.IssuedAt),
@@ -608,8 +608,8 @@ func (m *JWTMeta) String() string {
 func (m *JWTMeta) StructWriteTo(w io.Writer) (int, error) {
 	_, _ = m.StaticMeta.StructWriteTo(w)
 	_, _ = m.CryptoMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", organization=%s", m.Organization)
 	_, _ = fmt.Fprintf(w, ", audience=%s", m.Audience)
-	_, _ = fmt.Fprintf(w, ", subject=%s", m.Subject)
 	_, _ = fmt.Fprintf(w, ", valid_for=%d", m.ValidFor)
 	_, _ = fmt.Fprintf(w, ", valid_at=%d", m.ValidAt)
 	_, _ = fmt.Fprintf(w, ", issued_at=%d", m.IssuedAt)
@@ -629,8 +629,12 @@ func (m *JWTMeta) ExpirationClaim() time.Time {
 	return time.Unix(m.ValidAt+m.ValidFor, 0)
 }
 
+func (m *JWTMeta) SubjectClaim() string {
+	return m.Subject
+}
+
 func (m *JWTMeta) IssuerClaim() string {
-	return "http://" + m.CryptoMeta.Subject
+	return m.Organization
 }
 
 func (m *JWTMeta) SignatureAlgorithm() jwa.SignatureAlgorithm {

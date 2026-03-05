@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
+	"github.com/UiP9AV6Y/fake-secrets/internal/hash"
 )
 
 func ParseFormString(r *nethttp.Request, field, fallback string) string {
@@ -38,6 +39,20 @@ func ParseFormInt(r *nethttp.Request, field string, fallback int64) (int64, erro
 
 	result, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || result <= 0 {
+		return fallback, err
+	}
+
+	return result, nil
+}
+
+func ParseFormHashAlgorithm(r *nethttp.Request, field string, fallback hash.Algorithm) (hash.Algorithm, error) {
+	value := r.FormValue(field)
+	if value == "" {
+		return fallback, nil
+	}
+
+	result, err := hash.ParseAlgorithm(value)
+	if err != nil {
 		return fallback, err
 	}
 

@@ -20,6 +20,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	ssh := fake.NewSSHHandler(random, logger)
 	tls := fake.NewTLSHandler(now, random, logger)
 	jwt := fake.NewJWTHandler(now, random, logger)
+	hotp := fake.NewHOTPHandler(random, logger)
+	totp := fake.NewTOTPHandler(random, logger)
 
 	router.HandleFunc("/", index.ServeHTTP)
 	router.HandleFunc(cfg.HandlerPattern("passwords"), generator.ServePassword)
@@ -35,6 +37,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "certificates"), jwt.ServeCertificate)
 	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "keys"), jwt.ServePrivateKey)
 	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "tokens"), jwt.ServeToken)
+	router.HandleFunc(cfg.HandlerPattern("hotp", "{account}", "keys"), hotp.ServePrivateKey)
+	router.HandleFunc(cfg.HandlerPattern("hotp", "{account}", "codes"), hotp.ServeCode)
+	router.HandleFunc(cfg.HandlerPattern("totp", "{account}", "keys"), totp.ServePrivateKey)
+	router.HandleFunc(cfg.HandlerPattern("totp", "{account}", "codes"), totp.ServeCode)
 	router.Handle(cfg.HandlerPattern(health.URLPath), status)
 
 	if cfg.StorageDir != "" {

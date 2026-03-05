@@ -12,6 +12,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwa"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
+	"github.com/UiP9AV6Y/fake-secrets/internal/hash"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -643,4 +644,208 @@ func (m *JWTMeta) SignatureAlgorithm() jwa.SignatureAlgorithm {
 	}
 
 	return m.Algorithm.SignatureAlgorithm()
+}
+
+type OTPMeta struct {
+	StaticMeta `json:",inline"`
+
+	Organization string `json:"organization,omitempty"`
+	Subject      string `json:"subject,omitempty"`
+
+	Length int `json:"length,omitempty"`
+
+	Algorithm hash.Algorithm `json:"algorithm,omitempty"`
+}
+
+func ParseOTPMeta(subject string, r *nethttp.Request) (*OTPMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	length, err := http.ParseFormInt(r, "length", 20)
+	if err != nil {
+		return nil, err
+	}
+
+	algo, err := http.ParseFormHashAlgorithm(r, "algorithm", hash.AlgorithmSHA1)
+	if err != nil {
+		return nil, err
+	}
+
+	if length <= 0 {
+		return nil, fmt.Errorf("length must be a positive value, got %d", length)
+	}
+
+	organization := http.ParseFormString(r, "organization", "Vault")
+	static := NewStaticMeta(r)
+	result := &OTPMeta{
+		StaticMeta:   *static,
+		Organization: organization,
+		Subject:      subject,
+		Length:       int(length),
+		Algorithm:    algo,
+	}
+
+	return result, nil
+}
+
+func (m *OTPMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *OTPMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("organization", m.Organization),
+		slog.String("subject", m.Subject),
+		slog.Int("length", m.Length),
+	}
+
+	return append(attrs, m.StaticMeta.LogAttrs()...)
+}
+
+func (m *OTPMeta) String() string {
+	return DescribeStruct(m, "OTPMeta")
+}
+
+func (m *OTPMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", organization=%s", m.Organization)
+	_, _ = fmt.Fprintf(w, ", subject=%s", m.Subject)
+	_, _ = fmt.Fprintf(w, ", length=%d", m.Length)
+
+	return 0, nil
+}
+
+type TOTPMeta struct {
+	StaticMeta `json:",inline"`
+	OTPMeta    `json:",inline"`
+
+	ValidAt  int64 `json:"valid_at,omitempty"`
+	ValidFor int64 `json:"valid_for,omitempty"`
+}
+
+func ParseTOTPMeta(subject string, r *nethttp.Request) (*TOTPMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	shared, err := ParseOTPMeta(subject, r)
+	if err != nil {
+		return nil, err
+	}
+
+	validAt, err := http.ParseFormInt(r, "valid_at", time.Now().Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	validFor, err := http.ParseFormInt(r, "valid_for", 30) // 30 seconds
+	if err != nil {
+		return nil, err
+	}
+
+	if validFor <= 0 {
+		return nil, fmt.Errorf("valid_for must be a positive value, got %d", validFor)
+	}
+
+	static := NewStaticMeta(r)
+	result := &TOTPMeta{
+		StaticMeta: *static,
+		OTPMeta:    *shared,
+		ValidAt:    validAt,
+		ValidFor:   validFor,
+	}
+
+	return result, nil
+}
+
+func (m *TOTPMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *TOTPMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Int64("valid_at", m.ValidAt),
+		slog.Int64("valid_for", m.ValidFor),
+	}
+	attrs = append(attrs, m.StaticMeta.LogAttrs()...)
+
+	return append(attrs, m.OTPMeta.LogAttrs()...)
+}
+
+func (m *TOTPMeta) String() string {
+	return DescribeStruct(m, "TOTPMeta")
+}
+
+func (m *TOTPMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = m.OTPMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", valid_at=%d", m.ValidAt)
+	_, _ = fmt.Fprintf(w, ", valid_for=%d", m.ValidFor)
+
+	return 0, nil
+}
+
+type HOTPMeta struct {
+	StaticMeta `json:",inline"`
+	OTPMeta    `json:",inline"`
+
+	Counter int64 `json:"counter,omitempty"`
+}
+
+func ParseHOTPMeta(subject string, r *nethttp.Request) (*HOTPMeta, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	shared, err := ParseOTPMeta(subject, r)
+	if err != nil {
+		return nil, err
+	}
+
+	counter, err := http.ParseFormInt(r, "counter", 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if counter <= 0 {
+		return nil, fmt.Errorf("counter must be a positive value, got %d", counter)
+	}
+
+	static := NewStaticMeta(r)
+	result := &HOTPMeta{
+		StaticMeta: *static,
+		OTPMeta:    *shared,
+		Counter:    counter,
+	}
+
+	return result, nil
+}
+
+func (m *HOTPMeta) LogValue() slog.Value {
+	return slog.GroupValue(m.LogAttrs()...)
+}
+
+func (m *HOTPMeta) LogAttrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Int64("counter", m.Counter),
+	}
+	attrs = append(attrs, m.StaticMeta.LogAttrs()...)
+
+	return append(attrs, m.OTPMeta.LogAttrs()...)
+}
+
+func (m *HOTPMeta) String() string {
+	return DescribeStruct(m, "HOTPMeta")
+}
+
+func (m *HOTPMeta) StructWriteTo(w io.Writer) (int, error) {
+	_, _ = m.StaticMeta.StructWriteTo(w)
+	_, _ = m.OTPMeta.StructWriteTo(w)
+	_, _ = fmt.Fprintf(w, ", counter=%d", m.Counter)
+
+	return 0, nil
 }

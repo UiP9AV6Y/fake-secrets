@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/cache"
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -50,6 +51,10 @@ func (h *SSHHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
 }
 
+func (h *SSHHandler) RouteCertificate(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("ssh", "{hostname}", "certificates"), h.ServeCertificate
+}
+
 func (h *SSHHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Request) {
 	name := r.PathValue("hostname")
 	meta, err := ParseSSHMeta(name, r)
@@ -75,6 +80,10 @@ func (h *SSHHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 	data := ssh.MarshalAuthorizedKey(cert)
 
 	http.ServeSecret(w, data, meta)
+}
+
+func (h *SSHHandler) RoutePrivateKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("ssh", "{hostname}", "keys"), h.ServePrivateKey
 }
 
 func (h *SSHHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Request) {

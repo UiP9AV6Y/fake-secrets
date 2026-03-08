@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	nethttp "net/http"
 
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -24,6 +25,10 @@ func NewFileHandler(root fs.FS, logger *slog.Logger) *FileHandler {
 	}
 
 	return result
+}
+
+func (h *FileHandler) Route(cfg *config.Config) string {
+	return cfg.HandlerPattern("files", "{filename}")
 }
 
 func (h *FileHandler) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {

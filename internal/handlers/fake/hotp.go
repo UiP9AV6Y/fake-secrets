@@ -9,6 +9,7 @@ import (
 	"github.com/pquerna/otp/hotp"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/cache"
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -27,6 +28,10 @@ func NewHOTPHandler(rnd io.Reader, logger *slog.Logger) *HOTPHandler {
 	}
 
 	return result
+}
+
+func (h *HOTPHandler) RoutePrivateKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("hotp", "{account}", "keys"), h.ServePrivateKey
 }
 
 func (h *HOTPHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -55,6 +60,10 @@ func (h *HOTPHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reque
 	data := []byte(key.String())
 
 	http.ServeSecret(w, data, meta)
+}
+
+func (h *HOTPHandler) RouteCode(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("hotp", "{account}", "codes"), h.ServeCode
 }
 
 func (h *HOTPHandler) ServeCode(w nethttp.ResponseWriter, r *nethttp.Request) {

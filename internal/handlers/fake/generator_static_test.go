@@ -1,0 +1,58 @@
+package fake_test
+
+import (
+	"log/slog"
+	"math/rand"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/UiP9AV6Y/fake-secrets/internal/assert"
+	"github.com/UiP9AV6Y/fake-secrets/internal/handlers/fake"
+)
+
+func TestGeneratorHandlerServeStatic(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	testCases := map[string]struct {
+		HaveRequest []requestOption
+		Want        assert.Assertions[*http.Response]
+	}{
+		"default": {
+			HaveRequest: []requestOption{
+				WithRequestPathValue("secret", "super-secret-value"),
+			},
+			Want: assert.Assertions[*http.Response]{
+				assert.HTTPResponseStatusCode(http.StatusOK),
+				assert.HTTPResponseBodyJSON(
+					assertDTOString("secret",
+						assert.StringEqual("super-secret-value"),
+					),
+				),
+			},
+		},
+	}
+
+	for name, test := range testCases {
+		scenario := func(t *testing.T) {
+			seed := rand.NewSource(0)
+			rnd := rand.New(seed)
+			subject := fake.NewGeneratorHandler(rnd, logger)
+			reqopt := []requestOption{
+				WithRequestPath("passwords"),
+			}
+
+			if len(test.HaveRequest) > 0 {
+				reqopt = append(reqopt, test.HaveRequest...)
+			}
+
+			req := newRequest(t.Context(), reqopt...)
+			w := httptest.NewRecorder()
+
+			subject.ServeStatic(w, req)
+
+			assert.Assert(t, w.Result(), test.Want)
+		}
+
+		t.Run(name, scenario)
+	}
+}

@@ -1,6 +1,6 @@
 module github.com/UiP9AV6Y/fake-secrets
 
-go 1.26.0
+go 1.26.1
 
 require (
 	github.com/UiP9AV6Y/buildinfo v0.0.0-20241226145521-389438021249

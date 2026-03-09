@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	nethttp "net/http"
 
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -29,6 +30,10 @@ func NewGeneratorHandler(rnd *rand.Rand, logger *slog.Logger) *GeneratorHandler 
 	return result
 }
 
+func (h *GeneratorHandler) RouteStatic(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("passwords", "{secret}"), h.ServeStatic
+}
+
 func (h *GeneratorHandler) ServeStatic(w nethttp.ResponseWriter, r *nethttp.Request) {
 	name := r.PathValue("secret")
 	meta := NewStaticMeta(r)
@@ -38,6 +43,14 @@ func (h *GeneratorHandler) ServeStatic(w nethttp.ResponseWriter, r *nethttp.Requ
 	data := []byte(name)
 
 	http.ServeSecret(w, data, meta)
+}
+
+func (h *GeneratorHandler) RouteRandomAPIKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("apikeys"), h.ServeAPIKey
+}
+
+func (h *GeneratorHandler) RouteSeededAPIKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("apikeys", "{seed}"), h.ServeAPIKey
 }
 
 func (h *GeneratorHandler) ServeAPIKey(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -65,6 +78,14 @@ func (h *GeneratorHandler) ServeAPIKey(w nethttp.ResponseWriter, r *nethttp.Requ
 	http.ServeSecret(w, data, meta)
 }
 
+func (h *GeneratorHandler) RouteRandomToken(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("tokens"), h.ServeToken
+}
+
+func (h *GeneratorHandler) RouteSeededToken(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("tokens", "{seed}"), h.ServeToken
+}
+
 func (h *GeneratorHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 	name := r.PathValue("seed")
 	meta, err := ParseTokenMeta(name, r)
@@ -88,6 +109,10 @@ func (h *GeneratorHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Reque
 	}
 
 	http.ServeSecret(w, data, meta)
+}
+
+func (h *GeneratorHandler) RoutePassword(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("passwords"), h.ServePassword
 }
 
 func (h *GeneratorHandler) ServePassword(w nethttp.ResponseWriter, r *nethttp.Request) {

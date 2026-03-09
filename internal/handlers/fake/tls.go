@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/cache"
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/crypto"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
@@ -55,6 +56,10 @@ func (h *TLSHandler) ECDSACache() cache.Cacher[*ecdsa.PrivateKey] {
 
 func (h *TLSHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
+}
+
+func (h *TLSHandler) RouteCertificate(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("tls", "{hostname}", "certificates"), h.ServeCertificate
 }
 
 func (h *TLSHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -115,6 +120,10 @@ func (h *TLSHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 	data := pem.EncodeToMemory(block)
 
 	http.ServeSecret(w, data, meta)
+}
+
+func (h *TLSHandler) RoutePrivateKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("tls", "{hostname}", "keys"), h.ServePrivateKey
 }
 
 func (h *TLSHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Request) {

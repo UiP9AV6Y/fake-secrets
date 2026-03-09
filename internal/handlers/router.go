@@ -24,24 +24,24 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 	totp := fake.NewTOTPHandler(random, logger)
 
 	router.HandleFunc("/", index.ServeHTTP)
-	router.HandleFunc(cfg.HandlerPattern("passwords"), generator.ServePassword)
-	router.HandleFunc(cfg.HandlerPattern("passwords", "{secret}"), generator.ServeStatic)
-	router.HandleFunc(cfg.HandlerPattern("tokens"), generator.ServeToken)
-	router.HandleFunc(cfg.HandlerPattern("tokens", "{seed}"), generator.ServeToken)
-	router.HandleFunc(cfg.HandlerPattern("apikeys"), generator.ServeAPIKey)
-	router.HandleFunc(cfg.HandlerPattern("apikeys", "{seed}"), generator.ServeAPIKey)
-	router.HandleFunc(cfg.HandlerPattern("ssh", "{hostname}", "certificates"), ssh.ServeCertificate)
-	router.HandleFunc(cfg.HandlerPattern("ssh", "{hostname}", "keys"), ssh.ServePrivateKey)
-	router.HandleFunc(cfg.HandlerPattern("tls", "{hostname}", "certificates"), tls.ServeCertificate)
-	router.HandleFunc(cfg.HandlerPattern("tls", "{hostname}", "keys"), tls.ServePrivateKey)
-	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "certificates"), jwt.ServeCertificate)
-	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "keys"), jwt.ServePrivateKey)
-	router.HandleFunc(cfg.HandlerPattern("jwt", "{subject}", "tokens"), jwt.ServeToken)
-	router.HandleFunc(cfg.HandlerPattern("hotp", "{account}", "keys"), hotp.ServePrivateKey)
-	router.HandleFunc(cfg.HandlerPattern("hotp", "{account}", "codes"), hotp.ServeCode)
-	router.HandleFunc(cfg.HandlerPattern("totp", "{account}", "keys"), totp.ServePrivateKey)
-	router.HandleFunc(cfg.HandlerPattern("totp", "{account}", "codes"), totp.ServeCode)
-	router.Handle(cfg.HandlerPattern(health.URLPath), status)
+	router.HandleFunc(generator.RouteStatic(cfg))
+	router.HandleFunc(generator.RoutePassword(cfg))
+	router.HandleFunc(generator.RouteRandomToken(cfg))
+	router.HandleFunc(generator.RouteSeededToken(cfg))
+	router.HandleFunc(generator.RouteRandomAPIKey(cfg))
+	router.HandleFunc(generator.RouteSeededAPIKey(cfg))
+	router.HandleFunc(ssh.RouteCertificate(cfg))
+	router.HandleFunc(ssh.RoutePrivateKey(cfg))
+	router.HandleFunc(tls.RouteCertificate(cfg))
+	router.HandleFunc(tls.RoutePrivateKey(cfg))
+	router.HandleFunc(jwt.RouteCertificate(cfg))
+	router.HandleFunc(jwt.RoutePrivateKey(cfg))
+	router.HandleFunc(jwt.RouteToken(cfg))
+	router.HandleFunc(hotp.RoutePrivateKey(cfg))
+	router.HandleFunc(hotp.RouteCode(cfg))
+	router.HandleFunc(totp.RoutePrivateKey(cfg))
+	router.HandleFunc(totp.RouteCode(cfg))
+	router.Handle(status.Route(cfg), status)
 
 	if cfg.StorageDir != "" {
 		root, err := os.OpenRoot(cfg.StorageDir)
@@ -51,7 +51,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (http.Handler, error) {
 
 		file := fake.NewFileHandler(root.FS(), logger)
 
-		router.Handle(cfg.HandlerPattern("files", "{filename}"), file)
+		router.Handle(file.Route(cfg), file)
 	}
 
 	return router, nil

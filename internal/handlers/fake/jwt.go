@@ -14,6 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/UiP9AV6Y/fake-secrets/internal/cache"
+	"github.com/UiP9AV6Y/fake-secrets/internal/config"
 	"github.com/UiP9AV6Y/fake-secrets/internal/http"
 )
 
@@ -55,6 +56,10 @@ func (h *JWTHandler) ECDSACache() cache.Cacher[*ecdsa.PrivateKey] {
 
 func (h *JWTHandler) ED25519Cache() cache.Cacher[ed25519.PrivateKey] {
 	return h.ed25519
+}
+
+func (h *JWTHandler) RouteToken(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("jwt", "{subject}", "tokens"), h.ServeToken
 }
 
 func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -118,6 +123,10 @@ func (h *JWTHandler) ServeToken(w nethttp.ResponseWriter, r *nethttp.Request) {
 	http.ServeSecret(w, data, meta)
 }
 
+func (h *JWTHandler) RouteCertificate(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("jwt", "{subject}", "certificates"), h.ServeCertificate
+}
+
 func (h *JWTHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Request) {
 	name := r.PathValue("subject")
 	meta, err := ParseJWTMeta(name, h.start, r)
@@ -141,6 +150,10 @@ func (h *JWTHandler) ServeCertificate(w nethttp.ResponseWriter, r *nethttp.Reque
 	}
 
 	serveJWTKeySet(w, k, meta)
+}
+
+func (h *JWTHandler) RoutePrivateKey(cfg *config.Config) (string, nethttp.HandlerFunc) {
+	return cfg.HandlerPattern("jwt", "{subject}", "keys"), h.ServePrivateKey
 }
 
 func (h *JWTHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Request) {

@@ -28,6 +28,7 @@ jobs:
       platforms: linux/amd64,linux/arm64,linux/arm/v7
       build-args: BUILDKIT_CONTEXT_KEEP_GIT_DIR=1
       output: image
+      sign: false
       push: true
       set-meta-annotations: true
       set-meta-labels: true

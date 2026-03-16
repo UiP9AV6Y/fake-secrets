@@ -6,7 +6,7 @@ import (
 	"github.com/UiP9AV6Y/fake-secrets/internal/assert"
 )
 
-type DTO = map[string]interface{}
+type DTO = map[string]any
 
 func assertDTOString(field string, assertions ...assert.Assertion[string]) assert.Assertion[DTO] {
 	return func(t *testing.T, got DTO) {

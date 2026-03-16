@@ -75,7 +75,7 @@ func (a Algorithm) SignatureAlgorithm() jwa.SignatureAlgorithm {
 	return algorithmSignatures[a]
 }
 
-func PublicKey(key interface{}) interface{} {
+func PublicKey(key any) any {
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
 		return &k.PublicKey

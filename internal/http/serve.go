@@ -12,7 +12,7 @@ const (
 )
 
 func ServeError(w nethttp.ResponseWriter, code int, err error) {
-	dto := map[string]interface{}{
+	dto := map[string]any{
 		"error": err.Error(),
 	}
 
@@ -20,7 +20,7 @@ func ServeError(w nethttp.ResponseWriter, code int, err error) {
 	ServeJSON(w, dto)
 }
 
-func ServeSecretObject(w nethttp.ResponseWriter, data, meta interface{}) {
+func ServeSecretObject(w nethttp.ResponseWriter, data, meta any) {
 	secret, err := json.Marshal(data)
 	if err != nil {
 		ServeError(w, nethttp.StatusInternalServerError, err)
@@ -30,9 +30,9 @@ func ServeSecretObject(w nethttp.ResponseWriter, data, meta interface{}) {
 	ServeSecret(w, secret, meta)
 }
 
-func ServeSecret(w nethttp.ResponseWriter, data []byte, meta interface{}) {
+func ServeSecret(w nethttp.ResponseWriter, data []byte, meta any) {
 	secret := bytes.TrimSpace(data)
-	dto := map[string]interface{}{
+	dto := map[string]any{
 		"secret": string(secret),
 		"meta":   meta,
 	}
@@ -41,7 +41,7 @@ func ServeSecret(w nethttp.ResponseWriter, data []byte, meta interface{}) {
 	ServeJSON(w, dto)
 }
 
-func ServeJSON(w nethttp.ResponseWriter, dto interface{}) {
+func ServeJSON(w nethttp.ResponseWriter, dto any) {
 	w.Header().Set(HeaderContentType, ContentTypeJSON+"; charset=utf-8")
 
 	_ = json.NewEncoder(w).Encode(dto)

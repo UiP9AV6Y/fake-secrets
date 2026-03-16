@@ -17,7 +17,7 @@ import (
 type CertLoader struct {
 	Parent   *x509.Certificate
 	Template *x509.Certificate
-	Key      interface{}
+	Key      any
 	Random   io.Reader
 }
 

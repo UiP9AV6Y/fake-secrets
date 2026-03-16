@@ -181,7 +181,7 @@ func (h *JWTHandler) ServePrivateKey(w nethttp.ResponseWriter, r *nethttp.Reques
 	serveJWTKeySet(w, k, meta)
 }
 
-func serveJWTKeySet(w nethttp.ResponseWriter, key jwk.Key, meta interface{}) {
+func serveJWTKeySet(w nethttp.ResponseWriter, key jwk.Key, meta any) {
 	if err := jwk.AssignKeyID(key); err != nil {
 		http.ServeError(w, nethttp.StatusInternalServerError, err)
 		return

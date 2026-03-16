@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Common Changelog](https://common-changelog.org/),
 and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.0 - 2026-03-16
+
+### Changed
+
+- CI: disable image signing
+- modernize code using 'go fix'
+- build: update golang and distroless-debian image digests
+
 ## 0.2.0 - 2026-03-09
 
 ### Changed

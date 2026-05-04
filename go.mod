@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/UiP9AV6Y/buildinfo v0.0.0-20241226145521-389438021249
-	github.com/caarlos0/env/v11 v11.4.0
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/google/uuid v1.6.0
 	github.com/jxskiss/base62 v1.1.0
 	github.com/lestrrat-go/jwx/v3 v3.0.13

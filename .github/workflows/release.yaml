@@ -18,7 +18,7 @@ jobs:
           echo "registry_repository=${REGISTRY_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
   container-image:
-    uses: docker/github-builder/.github/workflows/build.yml@c2782c55efa56a01b9c30021db8f5ec3993228a3 # v1.8.0
+    uses: docker/github-builder/.github/workflows/build.yml@27ade872c1e2296e62ef15ab3b10d37665e57cf7 # v1.15.0
     needs:
       - custom_variables
     permissions:

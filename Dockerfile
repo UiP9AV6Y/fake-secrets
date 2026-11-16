@@ -19,7 +19,7 @@ ENV CGO_ENABLED=0
 RUN set -xe ; \
     make build install DESTDIR=/target
 
-FROM gcr.io/distroless/base-debian13:latest@sha256:f5e95195e998742ff590b7569bae479accce1226e51ae6c3118954030121cdcb AS release
+FROM gcr.io/distroless/base-debian13:latest@sha256:0e48b9bcd868bce9fa872cee10b52961d9e32677823da4bf68eefb44f38e7b9d AS release
 
 WORKDIR /data
 VOLUME /data
